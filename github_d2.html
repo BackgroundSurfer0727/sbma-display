@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=192,height=256">
+<title>AIR & NOISE QUALITY STATUS</title>
+
+<style>
+html,body{
+  width:192px;height:256px;margin:0;
+  background:#000;color:#fff;
+  font-family:Arial;overflow:hidden
+}
+
+.page{padding:4px;display:flex;flex-direction:column}
+
+.title{
+  font-size:10px;font-weight:bold;text-align:center
+}
+
+.time{
+  font-size:8px;color:#ccc;text-align:center
+}
+
+.panel{
+  margin-top:4px;
+  display:flex;
+  flex-direction:column;
+  gap:2px
+}
+
+.row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  background:#080808;
+  border:1px solid #222;
+  border-radius:3px;
+  padding:2px
+}
+
+.label{font-size:7px}
+
+.right{
+  display:grid;
+  grid-template-columns:60px auto;
+  gap:4px;
+  align-items:center
+}
+
+.value{
+  font-size:8px;
+  font-weight:bold;
+  text-align:right
+}
+
+.status{
+  font-size:7px;
+  font-weight:bold;
+  padding:1px 5px;
+  border-radius:10px;
+  background:#555;
+}
+
+.st-good{background:#007b3d}
+.st-fair{background:#b36a00}
+.st-moderate{background:#b38b00}
+.st-poor{background:#b30000}
+.st-vpoor{background:#65227a}
+.st-extreme{background:#e00000}
+.st-unknown{background:#555}
+
+.error{
+  color:#ff4444;
+  font-size:8px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+<div class="page">
+
+  <div class="title">AIR & NOISE QUALITY STATUS</div>
+  <div class="time">Last update: <span id="time">--</span></div>
+
+  <div class="panel" id="panel"></div>
+
+  <div id="error" class="error"></div>
+
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbx4z1BiG78MymSPEZuoOjURAkBRwO6896eHa5I4n0HS3k3PY6cYVAWFMPTjLUiG51c76A/exec?api=d2";
+const POLL = 60000;
+
+const FIELDS = [
+ ["Noise","noise","dB"],
+ ["Air Quality Index","aqi",""],
+ ["Heat Index","heat","°C"],
+ ["Wind Speed","wspd","km/h"],
+ ["Ozone (O₃)","o3","ppb"],
+ ["VOC","voc","ppb"],
+ ["PM2.5","pm25","µg/m³"],
+ ["PM10","pm10","µg/m³"],
+ ["CO2","co2","ppm"],
+ ["NO2","no2","ppb"],
+ ["SO2","so2","ppb"]
+];
+
+const panel = document.getElementById("panel");
+
+FIELDS.forEach(f=>{
+  const [label,id,unit] = f;
+
+  const r = document.createElement("div");
+  r.className = "row";
+  r.innerHTML =
+    "<div class='label'>"+label+"</div>"+
+    "<div class='right'>"+
+      "<div class='value'><span id='v-"+id+"'>—</span> "+unit+"</div>"+
+      "<div class='status st-unknown' id='s-"+id+"'>--</div>"+
+    "</div>";
+
+  panel.appendChild(r);
+});
+
+function fmt(v){
+  if(v==null || isNaN(v)) return "—";
+  return Number(v).toFixed(2);
+}
+
+function band(v, bands){
+  for(const b of bands){
+    if(v <= b[0]) return [b[1], b[2]];
+  }
+  return ["UNK","unknown"];
+}
+
+function classify(id, v){
+  if(v==null || isNaN(v)) return ["UNK","unknown"];
+
+  if(id==="aqi"){
+    return band(v, [
+      [25,"GOOD","good"],
+      [50,"FAIR","fair"],
+      [75,"MOD","moderate"],
+      [100,"POOR","poor"],
+      [125,"VPOOR","vpoor"],
+      [9999,"XPOOR","extreme"]
+    ]);
+  }
+
+  if(id==="pm25"){
+    return band(v, [
+      [5,"GOOD","good"],
+      [15,"FAIR","fair"],
+      [50,"MOD","moderate"],
+      [90,"POOR","poor"],
+      [140,"VPOOR","vpoor"],
+      [9999,"XPOOR","extreme"]
+    ]);
+  }
+
+  if(id==="pm10"){
+    return band(v, [
+      [15,"GOOD","good"],
+      [45,"FAIR","fair"],
+      [120,"MOD","moderate"],
+      [195,"POOR","poor"],
+      [270,"VPOOR","vpoor"],
+      [9999,"XPOOR","extreme"]
+    ]);
+  }
+
+  return ["GOOD","good"];
+}
+
+function applyStatus(id, v){
+  const el = document.getElementById("s-"+id);
+  if(!el) return;
+
+  const [label, cls] = classify(id, v);
+  el.className = "status st-" + cls;
+  el.textContent = label;
+}
+
+function updateTime(){
+  const d = new Date();
+  document.getElementById("time").textContent = d.toLocaleString();
+}
+
+function render(data){
+  FIELDS.forEach(f=>{
+    const id = f[1];
+    const v = data[id];
+
+    const el = document.getElementById("v-"+id);
+    if(el) el.textContent = fmt(v);
+
+    applyStatus(id, v);
+  });
+}
+
+function poll(){
+  fetch(API)
+    .then(r=>r.json())
+    .then(j=>{
+      if(!j.ok){
+        document.getElementById("error").textContent = "ERROR: " + j.error;
+        return;
+      }
+
+      document.getElementById("error").textContent = "";
+      render(j.data);
+      updateTime();
+    })
+    .catch(err=>{
+      document.getElementById("error").textContent = "FETCH ERROR";
+    })
+    .finally(()=>setTimeout(poll, POLL));
+}
+
+poll();
+</script>
+
+</body>
+</html>
