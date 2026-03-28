@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Weather Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h1>Live Weather Dashboard</h1>
+
+<canvas id="tempChart"></canvas>
+<canvas id="windChart"></canvas>
+
+<img id="cam1" width="300">
+<img id="cam2" width="300">
+<img id="cam3" width="300">
+<img id="cam4" width="300">
+
+<script>
+
+const SHEET_URL = "https://opensheet.elk.sh/YOUR_SHEET_ID/Data";
+
+fetch(SHEET_URL)
+.then(res => res.json())
+.then(data => {
+
+    const temps = data.map(d => d.temp).slice(-20);
+    const winds = data.map(d => d.wind_speed).slice(-20);
+    const labels = data.map(d => d.timestamp).slice(-20);
+
+    new Chart(document.getElementById("tempChart"), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{label: 'Temp', data: temps}]
+        }
+    });
+
+    new Chart(document.getElementById("windChart"), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{label: 'Wind Speed', data: winds}]
+        }
+    });
+
+});
+
+// Camera images (update manually or automate later)
+document.getElementById("cam1").src = "cam1.jpg";
+document.getElementById("cam2").src = "cam2.jpg";
+document.getElementById("cam3").src = "cam3.jpg";
+document.getElementById("cam4").src = "cam4.jpg";
+
+</script>
+
+</body>
+</html>
